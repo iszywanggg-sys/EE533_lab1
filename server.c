@@ -22,11 +22,11 @@ int main(int argc, char *argv[]) {
          exit(1);
      }
 
-     // 创建 Socket [cite: 121]
+     // 创建 Socket
      sockfd = socket(AF_INET, SOCK_STREAM, 0);
      if (sockfd < 0) error("ERROR opening socket");
 
-     // 初始化并绑定端口 [cite: 138, 156]
+     // 初始化并绑定端口
      bzero((char *) &serv_addr, sizeof(serv_addr));
      portno = atoi(argv[1]);
      serv_addr.sin_family = AF_INET;
@@ -36,21 +36,21 @@ int main(int argc, char *argv[]) {
      if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
               error("ERROR on binding");
 
-     // 开始监听 [cite: 161]
+     // 开始监听
      listen(sockfd, 5);
      clilen = sizeof(cli_addr);
 
-     // 阻塞等待客户端连接 [cite: 170]
+     // 阻塞等待客户端连接
      newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
      if (newsockfd < 0) error("ERROR on accept");
 
-     // 读取数据 [cite: 176, 179]
+     // 读取数据
      bzero(buffer, 256);
      n = read(newsockfd, buffer, 255);
      if (n < 0) error("ERROR reading from socket");
      printf("Here is the message: %s\n", buffer);
 
-     // 发送回复 [cite: 184, 187]
+     // 发送回复
      n = write(newsockfd, "I got your message", 18);
      if (n < 0) error("ERROR writing to socket");
 
