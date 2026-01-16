@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <signal.h>
 
 void error(char *msg) {
     perror(msg);
@@ -12,49 +13,60 @@ void error(char *msg) {
 }
 
 int main(int argc, char *argv[]) {
-     int sockfd, newsockfd, portno, clilen;
-     char buffer[256];
-     struct sockaddr_in serv_addr, cli_addr;
-     int n;
+    int sockfd, newsockfd, portno, clilen, pid;
+    struct sockaddr_in serv_addr, cli_addr;
 
-     if (argc < 2) {
-         fprintf(stderr,"ERROR, no port provided\n");
-         exit(1);
-     }
+    if (argc < 2) {
+        fprintf(stderr, "ERROR, no port provided\n");
+        exit(1);
+    }
 
-     // 创建 Socket
-     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-     if (sockfd < 0) error("ERROR opening socket");
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) error("ERROR opening socket");
 
-     // 初始化并绑定端口
-     bzero((char *) &serv_addr, sizeof(serv_addr));
-     portno = atoi(argv[1]);
-     serv_addr.sin_family = AF_INET;
-     serv_addr.sin_addr.s_addr = INADDR_ANY;
-     serv_addr.sin_port = htons(portno);
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    portno = atoi(argv[1]);
 
-     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
-              error("ERROR on binding");
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(portno);
 
-     // 开始监听
-     listen(sockfd, 5);
-     clilen = sizeof(cli_addr);
+    if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+        error("ERROR on binding");
 
-     // 阻塞等待客户端连接
-     newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-     if (newsockfd < 0) error("ERROR on accept");
+    listen(sockfd, 5);
+    
+    signal(SIGCHLD, SIG_IGN); 
 
-     // 读取数据
-     bzero(buffer, 256);
-     n = read(newsockfd, buffer, 255);
-     if (n < 0) error("ERROR reading from socket");
-     printf("Here is the message: %s\n", buffer);
+    printf("Concurrent Server started on port %d...\n", portno);
 
-     // 发送回复
-     n = write(newsockfd, "I got your message", 18);
-     if (n < 0) error("ERROR writing to socket");
+    while (1) {
+        clilen = sizeof(cli_addr);
+        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+        if (newsockfd < 0) error("ERROR on accept");
 
-     close(newsockfd);
-     close(sockfd);
-     return 0; 
+        pid = fork();
+        if (pid < 0) error("ERROR on fork");
+
+        if (pid == 0) {  
+            close(sockfd); 
+            
+            char buffer[256];
+            bzero(buffer, 256);
+            int n = read(newsockfd, buffer, 255);
+            if (n < 0) error("ERROR reading from socket");
+            
+            printf("Received message: %s\n", buffer);
+            
+            n = write(newsockfd, "I got your message", 18);
+            if (n < 0) error("ERROR writing to socket");
+            
+            close(newsockfd);
+            exit(0); 
+        } 
+        else { 
+            close(newsockfd); 
+        }
+    }
+    return 0; 
 }
